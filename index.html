@@ -68,20 +68,24 @@
                                 <div><label class="flex items-center"><input type="checkbox" value="lastModified" class="column-checkbox" checked><span class="ml-2 text-sm text-slate-700">最終更新日時</span></label></div>
                                 <div><label class="flex items-center"><input type="checkbox" value="level" class="column-checkbox" checked><span class="ml-2 text-sm text-slate-700">階層レベル</span></label></div>
                                 <div><label class="flex items-center"><input type="checkbox" value="parent" class="column-checkbox" checked><span class="ml-2 text-sm text-slate-700">親フォルダ</span></label></div>
-                                <div><label class="flex items-center"><input type="checkbox" value="fileNumber" class="column-checkbox" checked><span class="ml-2 text-sm text-slate-700">ファイルナンバー</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="fileNumber" class="column-checkbox" checked><span class="ml-2 text-sm text-slate-700">ファイルナンバー（自動割振り）</span></label></div>
                             </div>
                         </div>
 
                         <!-- 日時フォーマット -->
-                        <div>
-                             <label for="date-format-select" class="block text-md font-semibold text-slate-700 mb-2">日時フォーマット</label>
-                             <select id="date-format-select" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500">
-                                 <option value="normal">日時 (例: 2023/10/27 10:30:00)</option>
-                                 <option value="date_only">日付のみ (例: 2023/10/27)</option>
-                                 <option value="time_only">時刻のみ (例: 10:30:00)</option>
-                                 <option value="date_time_split">日付と時刻 (2列)</option>
-                                 <option value="split">日時を分割 (年,月,日...を別々の列に)</option>
-                             </select>
+                        <div id="date-format-section">
+                            <h3 class="text-md font-semibold text-slate-700 mb-3">日時フォーマット（複数選択可）</h3>
+                            <div id="date-format-selection" class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                                <div><label class="flex items-center"><input type="checkbox" value="normal" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">日時(結合)</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="date_only" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">日付</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="time_only" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">時刻</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="year" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">年</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="month" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">月</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="day" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">日</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="hour" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">時</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="minute" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">分</span></label></div>
+                                <div><label class="flex items-center"><input type="checkbox" value="second" class="date-format-checkbox" checked><span class="ml-2 text-sm text-slate-700">秒</span></label></div>
+                            </div>
                         </div>
                         
                         <!-- 並び替え -->
@@ -139,7 +143,26 @@ const statusDiv = document.getElementById('status');
 const downloadBtn = document.getElementById('download-btn');
 const sortBySelect = document.getElementById('sort-by');
 const sortOrderSelect = document.getElementById('sort-order');
-const dateFormatSelect = document.getElementById('date-format-select');
+const lastModifiedCheckbox = document.querySelector('.column-checkbox[value="lastModified"]');
+const dateFormatSection = document.getElementById('date-format-section');
+
+// --- チェックボックス連動ロジック ---
+lastModifiedCheckbox.addEventListener('change', () => {
+    const isChecked = lastModifiedCheckbox.checked;
+
+    // 日時フォーマットセクションの活性/非活性を切り替え
+    dateFormatSection.classList.toggle('opacity-50', !isChecked);
+    dateFormatSection.classList.toggle('pointer-events-none', !isChecked);
+    
+    // 「最終更新日時」のチェックが外れたら、日時フォーマットのチェックをすべて外す
+    if (!isChecked) {
+        const dateFormatCheckboxes = dateFormatSection.querySelectorAll('.date-format-checkbox');
+        dateFormatCheckboxes.forEach(cb => {
+            cb.checked = false;
+        });
+    }
+});
+
 
 // --- ドラッグ＆ドロップのイベント設定 ---
 dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -348,15 +371,29 @@ downloadBtn.addEventListener('click', () => {
         return outputColumnOrder.indexOf(a.key) - outputColumnOrder.indexOf(b.key);
     });
 
-    const dateFormat = dateFormatSelect.value;
+    const selectedDateFormats = Array.from(document.querySelectorAll('.date-format-checkbox:checked')).map(cb => cb.value);
     
     // ヘッダーを動的に生成
     const headers = [];
+    const dateFormatHeaderMap = {
+        'normal': '最終更新日時',
+        'date_only': '更新-日付',
+        'time_only': '更新-時刻',
+        'year': '更新-年',
+        'month': '更新-月',
+        'day': '更新-日',
+        'hour': '更新-時',
+        'minute': '更新-分',
+        'second': '更新-秒'
+    };
+
     orderedSelectedColumns.forEach(col => {
-        if (col.key === 'lastModified' && dateFormat === 'split') {
-            headers.push('更新-年', '更新-月', '更新-日', '更新-時', '更新-分', '更新-秒');
-        } else if (col.key === 'lastModified' && dateFormat === 'date_time_split') {
-            headers.push('更新-日付', '更新-時刻');
+        if (col.key === 'lastModified') {
+            selectedDateFormats.forEach(format => {
+                if (dateFormatHeaderMap[format]) {
+                    headers.push(dateFormatHeaderMap[format]);
+                }
+            });
         } else {
             headers.push(col.label);
         }
@@ -387,31 +424,25 @@ downloadBtn.addEventListener('click', () => {
         orderedSelectedColumns.forEach(col => {
             if (col.key === 'lastModified') {
                 const d = fileInfo.lastModified;
-                switch (dateFormat) {
-                    case 'split':
-                        rowData.push(d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds());
-                        break;
-                    case 'date_time_split':
-                        rowData.push(d.toLocaleDateString('ja-JP'), d.toLocaleTimeString('ja-JP', { hour12: false }));
-                        break;
-                    case 'date_only':
-                        rowData.push(d.toLocaleDateString('ja-JP'));
-                        break;
-                    case 'time_only':
-                        rowData.push(d.toLocaleTimeString('ja-JP', { hour12: false }));
-                        break;
-                    case 'normal':
-                    default:
-                        rowData.push(d.toLocaleString('ja-JP', { hour12: false }));
-                        break;
-                }
+                selectedDateFormats.forEach(format => {
+                    switch (format) {
+                        case 'normal': rowData.push(d.toLocaleString('ja-JP', { hour12: false })); break;
+                        case 'date_only': rowData.push(d.toLocaleDateString('ja-JP')); break;
+                        case 'time_only': rowData.push(d.toLocaleTimeString('ja-JP', { hour12: false })); break;
+                        case 'year': rowData.push(d.getFullYear()); break;
+                        case 'month': rowData.push(d.getMonth() + 1); break;
+                        case 'day': rowData.push(d.getDate()); break;
+                        case 'hour': rowData.push(d.getHours()); break;
+                        case 'minute': rowData.push(d.getMinutes()); break;
+                        case 'second': rowData.push(d.getSeconds()); break;
+                    }
+                });
             } else {
                 rowData.push(fileInfo[col.key]);
             }
         });
 
-        const flattenedRow = [].concat.apply([], rowData);
-        const escapedRow = flattenedRow.map(field => `"${String(field).replace(/"/g, '""')}"`);
+        const escapedRow = rowData.map(field => `"${String(field).replace(/"/g, '""')}"`);
         csvRows.push(escapedRow.join(','));
     });
 
@@ -432,7 +463,5 @@ downloadBtn.addEventListener('click', () => {
 </script>
 </body>
 </html>
-
-
 
 
